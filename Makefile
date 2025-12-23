@@ -34,7 +34,7 @@ CFLAGS = -Os -g -Wall -ffunction-sections -fdata-sections $(INC_FLAGS) -DLV_CONF
 # --- 链接参数 ---
 LDFLAGS = -Wl,--gc-sections -flto
 # 如果需要链接 math 库或 pthread，在这里添加 -lm -lpthread
-LDLIBS = -lgpiod -lm
+LDLIBS = -lgpiod -lm -lpng -ljpeg -lz
 
 # --- 构建逻辑 ---
 TARGET = $(BUILD_DIR)/$(TARGET_EXEC)
