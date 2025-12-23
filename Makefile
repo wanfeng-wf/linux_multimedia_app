@@ -14,13 +14,16 @@ STRIP = $(CROSS_COMPILE)strip
 # --- 目录配置 ---
 # 源文件目录
 SRC_DIRS := ./src \
-			 ./3rdparty/lvgl
+			 ./3rdparty/lvgl/src
 
 # 递归查找所有的 .c 文件
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
-
 # 自动查找包含路径
-INC_DIRS := $(shell find $(SRC_DIRS) -type d) ./inc
+INC_DIRS := $(shell find $(SRC_DIRS) -type d)
+
+# 追加目录
+INC_DIRS += ./3rdparty/lvgl ./inc
+
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # --- 编译参数 ---
