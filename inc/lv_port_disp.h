@@ -1,5 +1,5 @@
-#ifndef _LVGL_PORT_FB_H
-#define _LVGL_PORT_FB_H
+#ifndef _LVGL_PORT_DISP_H
+#define _LVGL_PORT_DISP_H
 
 #ifdef __cplusplus
 extern "C"
@@ -30,4 +30,4 @@ void lv_port_disp_deinit(void);
 }
 #endif
 
-#endif // _LVGL_PORT_FB_H
+#endif // _LVGL_PORT_DISP_H

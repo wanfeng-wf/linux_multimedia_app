@@ -180,11 +180,11 @@ static void keypad_read_cb_v2(lv_indev_drv_t *drv, lv_indev_data_t *data) {
   if (key_state_1.is_pressed) {
     uint32_t duration = now - key_state_1.press_start;
     if (duration < LONG_PRESS_MS) {
-      data->key = LV_KEY_NEXT;
+      data->key   = LV_KEY_RIGHT;
       data->state = LV_INDEV_STATE_PRESSED;
     } else {
       // 超时变身
-      data->key = LV_KEY_PREV;
+      data->key   = LV_KEY_LEFT;
       data->state = LV_INDEV_STATE_PRESSED;
     }
   }

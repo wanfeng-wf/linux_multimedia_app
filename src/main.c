@@ -5,6 +5,7 @@
 #include "lvgl.h"
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
+#include "app_image.h"
 
 static volatile sig_atomic_t keep_running = 1;
 void int_handler(int dummy) { keep_running = 0; }
@@ -16,15 +17,8 @@ int main(void)
     // LVGL 核心初始化
     lv_init();
 
-    // 打开 /dev/fb1 并注册驱动
-    if (lv_port_disp_init() != 0)
-    {
-        printf("Failed to init display!\n");
-        return -1;
-    }
-
-    // 初始化输入按键
-    lv_port_indev_init();
+    lv_port_disp_init();  // 初始化显示驱动
+    lv_port_indev_init(); // 初始化输入按键
 
     // 创建一个全局 Group (用于按键导航)
     lv_group_t *g = lv_group_create();
@@ -37,19 +31,21 @@ int main(void)
 
     // --- 测试 UI ---
     // 创建两个按钮测试焦点切换
-    lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
-    lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
-    lv_obj_t *label1 = lv_label_create(btn1);
-    lv_label_set_text(label1, "Button 1");
+    // lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
+    // lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
+    // lv_obj_t *label1 = lv_label_create(btn1);
+    // lv_label_set_text(label1, "Button 1");
 
-    lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
-    lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 40);
-    lv_obj_t *label2 = lv_label_create(btn2);
-    lv_label_set_text(label2, "Button 2");
+    // lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
+    // lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 40);
+    // lv_obj_t *label2 = lv_label_create(btn2);
+    // lv_label_set_text(label2, "Button 2");
 
     // 手动把控件加入组 (如果没设默认组的话需要这一步)
     // lv_group_add_obj(g, btn1);
     // lv_group_add_obj(g, btn2);
+
+    app_image_init();
 
     while (keep_running)
     {
