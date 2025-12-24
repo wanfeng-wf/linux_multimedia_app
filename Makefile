@@ -22,7 +22,7 @@ SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 
 # 追加目录
-INC_DIRS += ./3rdparty/lvgl ./inc
+INC_DIRS += ./3rdparty/lvgl ./inc /usr/include/freetype2
 
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
@@ -34,7 +34,7 @@ CFLAGS = -Os -g -Wall -ffunction-sections -fdata-sections $(INC_FLAGS) -DLV_CONF
 # --- 链接参数 ---
 LDFLAGS = -Wl,--gc-sections -flto
 # 如果需要链接 math 库或 pthread，在这里添加 -lm -lpthread
-LDLIBS = -lgpiod -lm -lpng -ljpeg -lz
+LDLIBS = -lgpiod -lm -lpng -ljpeg -lz -lfreetype
 
 # --- 构建逻辑 ---
 TARGET = $(BUILD_DIR)/$(TARGET_EXEC)

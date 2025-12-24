@@ -6,6 +6,7 @@
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
 #include "app_image.h"
+#include "app_text.h"
 
 static volatile sig_atomic_t keep_running = 1;
 void int_handler(int dummy) { keep_running = 0; }
@@ -45,7 +46,8 @@ int main(void)
     // lv_group_add_obj(g, btn1);
     // lv_group_add_obj(g, btn2);
 
-    app_image_init();
+    // app_image_init();
+    app_text_init();
 
     while (keep_running)
     {
