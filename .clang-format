@@ -12,7 +12,24 @@ TabWidth: 4
 ColumnLimit: 0
 IndentPPDirectives: BeforeHash # 嵌套宏缩进风格为‘#’前缩进
 PPIndentWidth: -1 # 嵌套宏的缩进，使用IndentWidt
-BreakBeforeBraces: Allman
+
+IndentExternBlock: NoIndent # extern "C" 后面内容不缩进 
+
+# 自定义大括号换行风格
+BreakBeforeBraces: Custom
+BraceWrapping:
+  # 关键点：强制 extern "C" 后面的大括号换行
+  AfterExternBlock: true
+  
+  # 下面这些设置为 true，是为了模拟 Allman 风格 (全部换行)
+  AfterClass: true
+  AfterControlStatement: true # if/for/while 后换行
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeElse: true            # else 前面换行
 
 ###################################
 #          other styles
@@ -23,23 +40,14 @@ BreakBeforeBraces: Allman
 #
 
 AllowShortIfStatementsOnASingleLine: false # 不允许将if条件和语句放在同一行
-
 AllowShortLoopsOnASingleLine: true # 允许循环条件和语句放在同一行
-
 AllowShortBlocksOnASingleLine: true # 允许短语句放在同一行
-
 IndentCaseLabels: true # 对case标签进行额外的缩进
-
 SortIncludes: false # 不要排序#include
-
 AlignConsecutiveAssignments: Consecutive # 对齐赋值,不跨空行不跨注释
-
 AlignConsecutiveBitFields: Consecutive # 对齐位域,不跨空行不跨注释
-
 AlignConsecutiveMacros: Consecutive # 对齐define宏,不跨空行不跨注释
-
 AlignTrailingComments: true # 对齐尾随注释
 
 SpacesBeforeTrailingComments: 1 # 尾行注释(// -注释)之前的空格数
-
 MaxEmptyLinesToKeep: 1 # 最大连续空行数

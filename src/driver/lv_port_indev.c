@@ -24,7 +24,7 @@ static key_state_t key_state_2 = {0}; // 对应 KEY 2
 
 // 用于缓存发送给 LVGL 的逻辑键
 static uint32_t last_lv_key = 0;
-static lv_indev_state_t last_lv_state = LV_INDEV_STATE_RELEASED;
+// static lv_indev_state_t last_lv_state = LV_INDEV_STATE_RELEASED;
 
 // 获取毫秒级时间戳
 static uint32_t current_timestamp(void) { return lv_tick_get(); }
@@ -68,100 +68,100 @@ static void evdev_read_phys(void) {
 /**
  * @brief LVGL 回调函数：处理逻辑转换
  */
-static void keypad_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
-  // 1. 读取最新的物理硬件状态
-  evdev_read_phys();
+// static void keypad_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
+//   // 1. 读取最新的物理硬件状态
+//   evdev_read_phys();
 
-  uint32_t now = current_timestamp();
+//   uint32_t now = current_timestamp();
 
-  // 默认输出状态
-  data->state = LV_INDEV_STATE_RELEASED;
-  // 如果没有按键动作，保持发送上一次的键值 (LVGL 要求)
-  data->key = last_lv_key;
+//   // 默认输出状态
+//   data->state = LV_INDEV_STATE_RELEASED;
+//   // 如果没有按键动作，保持发送上一次的键值 (LVGL 要求)
+//   data->key = last_lv_key;
 
-  // --- 逻辑处理 ---
-  // 优先级：由于是单线程轮询，我们一次只能处理一个按键的逻辑
-  // 这里简单处理：优先处理正在活动的按键
+//   // --- 逻辑处理 ---
+//   // 优先级：由于是单线程轮询，我们一次只能处理一个按键的逻辑
+//   // 这里简单处理：优先处理正在活动的按键
 
-  key_state_t *active = NULL;
-  uint32_t short_key_map = 0;
-  uint32_t long_key_map = 0;
+//   key_state_t *active = NULL;
+//   uint32_t short_key_map = 0;
+//   uint32_t long_key_map = 0;
 
-  // 检查 Key 1
-  if (key_state_1.is_pressed || (key_state_1.press_start > 0)) {
-    active = &key_state_1;
-    short_key_map = LV_KEY_NEXT; // 短按：切换焦点
-    long_key_map = LV_KEY_PREV;  // 长按：反向切换
-  }
-  // 检查 Key 2 (如果 Key 1 没动静)
-  else if (key_state_2.is_pressed || (key_state_2.press_start > 0)) {
-    active = &key_state_2;
-    short_key_map = LV_KEY_ENTER; // 短按：确认
-    long_key_map = LV_KEY_ESC;    // 长按：退出/返回
-  }
+//   // 检查 Key 1
+//   if (key_state_1.is_pressed || (key_state_1.press_start > 0)) {
+//     active = &key_state_1;
+//     short_key_map = LV_KEY_NEXT; // 短按：切换焦点
+//     long_key_map = LV_KEY_PREV;  // 长按：反向切换
+//   }
+//   // 检查 Key 2 (如果 Key 1 没动静)
+//   else if (key_state_2.is_pressed || (key_state_2.press_start > 0)) {
+//     active = &key_state_2;
+//     short_key_map = LV_KEY_ENTER; // 短按：确认
+//     long_key_map = LV_KEY_ESC;    // 长按：退出/返回
+//   }
 
-  if (active) {
-    // 计算按下时长
-    uint32_t duration = 0;
-    if (active->is_pressed) {
-      duration = now - active->press_start;
-    } else {
-      // 如果刚抬起，press_start 还需要用来计算最后一次时长
-      // 逻辑稍微复杂，为了简化，我们在抬起瞬间处理短按
-    }
+//   if (active) {
+//     // 计算按下时长
+//     uint32_t duration = 0;
+//     if (active->is_pressed) {
+//       duration = now - active->press_start;
+//     } else {
+//       // 如果刚抬起，press_start 还需要用来计算最后一次时长
+//       // 逻辑稍微复杂，为了简化，我们在抬起瞬间处理短按
+//     }
 
-    // --- 场景 A: 按键保持按下状态 ---
-    if (active->is_pressed) {
-      // 检查是否达到长按阈值
-      if (duration > LONG_PRESS_MS) {
-        // 触发长按逻辑
-        data->key = long_key_map;
-        data->state = LV_INDEV_STATE_PRESSED;
-        active->long_press_sent = true; // 标记已触发
+//     // --- 场景 A: 按键保持按下状态 ---
+//     if (active->is_pressed) {
+//       // 检查是否达到长按阈值
+//       if (duration > LONG_PRESS_MS) {
+//         // 触发长按逻辑
+//         data->key = long_key_map;
+//         data->state = LV_INDEV_STATE_PRESSED;
+//         active->long_press_sent = true; // 标记已触发
 
-        // 更新缓存
-        last_lv_key = data->key;
-      } else {
-        // 还没达到长按，什么都不发，等待用户是松开还是继续按
-        // 或者发送 Short Key 的 PRESSED 状态？
-        // 策略：为了区分长短按，在达到阈值前，我们不发送任何按键给 LVGL
-        data->state = LV_INDEV_STATE_RELEASED;
-      }
-    }
-    // --- 场景 B: 按键刚抬起 (物理松开) ---
-    else {
-      // 只有当 press_start 非 0 时才表示这是一个有效的按键周期结束
-      if (active->press_start != 0) {
-        uint32_t total_time = now - active->press_start;
+//         // 更新缓存
+//         last_lv_key = data->key;
+//       } else {
+//         // 还没达到长按，什么都不发，等待用户是松开还是继续按
+//         // 或者发送 Short Key 的 PRESSED 状态？
+//         // 策略：为了区分长短按，在达到阈值前，我们不发送任何按键给 LVGL
+//         data->state = LV_INDEV_STATE_RELEASED;
+//       }
+//     }
+//     // --- 场景 B: 按键刚抬起 (物理松开) ---
+//     else {
+//       // 只有当 press_start 非 0 时才表示这是一个有效的按键周期结束
+//       if (active->press_start != 0) {
+//         uint32_t total_time = now - active->press_start;
 
-        // 如果之前没有触发过长按逻辑，并且时间较短 -> 判定为短按
-        if (!active->long_press_sent && total_time < LONG_PRESS_MS) {
-          // 这是一个短按点击！
-          // 问题：LVGL 需要探测到 PRESSED 然后 RELEASED 才能触发点击。
-          // 但我们是在抬起后才决定这是短按。
-          // 技巧：我们在这里必须欺骗 LVGL。
-          // 由于这是 polling，这帧我们发 PRESSED，下一帧发 RELEASED
-          // 比较难控制。 简单方案：直接发送 RELEASED，但是 key 是短按键值。
-          // *更稳妥方案*：这里发一次 PRESSED，利用静态变量下一帧发 RELEASED。
+//         // 如果之前没有触发过长按逻辑，并且时间较短 -> 判定为短按
+//         if (!active->long_press_sent && total_time < LONG_PRESS_MS) {
+//           // 这是一个短按点击！
+//           // 问题：LVGL 需要探测到 PRESSED 然后 RELEASED 才能触发点击。
+//           // 但我们是在抬起后才决定这是短按。
+//           // 技巧：我们在这里必须欺骗 LVGL。
+//           // 由于这是 polling，这帧我们发 PRESSED，下一帧发 RELEASED
+//           // 比较难控制。 简单方案：直接发送 RELEASED，但是 key 是短按键值。
+//           // *更稳妥方案*：这里发一次 PRESSED，利用静态变量下一帧发 RELEASED。
 
-          // 这里简化实现：假设按键按下时我们不反馈，只有松开时我们“点击”一下
-          // 但 LVGL 的 KEYPAD 模式通常需要看到按下动作。
-          // 让我们改进策略：
-          // 所有的按键按下，立即映射为 Short Key PRESSED。
-          // 如果超时，自动改为 Long Key PRESSED。
-          // 这样会有副作用：长按时会先触发短按的 Focus 变化。
-          // 但对于 NEXT/PREV 来说，先 Next 再 Prev
-          // 只是跳过去又跳回来，视觉上可以接受。
-        }
+//           // 这里简化实现：假设按键按下时我们不反馈，只有松开时我们“点击”一下
+//           // 但 LVGL 的 KEYPAD 模式通常需要看到按下动作。
+//           // 让我们改进策略：
+//           // 所有的按键按下，立即映射为 Short Key PRESSED。
+//           // 如果超时，自动改为 Long Key PRESSED。
+//           // 这样会有副作用：长按时会先触发短按的 Focus 变化。
+//           // 但对于 NEXT/PREV 来说，先 Next 再 Prev
+//           // 只是跳过去又跳回来，视觉上可以接受。
+//         }
 
-        // 重置状态
-        active->press_start = 0;
-        active->long_press_sent = false;
-      }
-      data->state = LV_INDEV_STATE_RELEASED;
-    }
-  }
-}
+//         // 重置状态
+//         active->press_start = 0;
+//         active->long_press_sent = false;
+//       }
+//       data->state = LV_INDEV_STATE_RELEASED;
+//     }
+//   }
+// }
 
 // --- 改进后的回调逻辑 (更流畅的交互) ---
 // 上面的逻辑在处理“按下不发，松开才发”时，会导致 UI 响应迟钝。

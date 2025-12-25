@@ -6,8 +6,8 @@ extern "C"
 {
 #endif
 
-    // 初始化并打开图片浏览应用
-    void app_image_init(void);
+// 初始化并打开图片浏览应用
+void app_image_init(void);
 
 #ifdef __cplusplus
 }

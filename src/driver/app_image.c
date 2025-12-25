@@ -10,8 +10,8 @@
 #define IMG_DIR_PATH "/root/multimedia_app" // 真实的 Linux 路径用于扫描
 #define LV_FS_PREFIX "S:"                   // LVGL 映射的盘符前缀
 
-#define MAX_FILES     50 // 最大支持图片数
-#define MAX_FNAME_LEN 64 // 文件名最大长度
+#define MAX_FILES     50  // 最大支持图片数
+#define MAX_FNAME_LEN 256 // 文件名最大长度
 
 // --- 静态变量 ---
 static char file_list[MAX_FILES][MAX_FNAME_LEN];

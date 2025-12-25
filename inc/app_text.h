@@ -6,8 +6,8 @@ extern "C"
 {
 #endif
 
-    // 初始化并打开小说阅读器
-    void app_text_init(void);
+// 初始化并打开小说阅读器
+void app_text_init(void);
 
 #ifdef __cplusplus
 }
