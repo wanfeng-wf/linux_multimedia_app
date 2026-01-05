@@ -8,6 +8,7 @@
 #include "app_image.h"
 #include "app_text.h"
 #include "app_music.h"
+#include "app_video.h"
 
 static volatile sig_atomic_t keep_running = 1;
 void int_handler(int dummy) { keep_running = 0; }
@@ -49,7 +50,8 @@ int main(void)
 
     // app_image_init();
     // app_text_init();
-    app_music_init();
+    // app_music_init();
+    app_video_init();
 
     while (keep_running)
     {
