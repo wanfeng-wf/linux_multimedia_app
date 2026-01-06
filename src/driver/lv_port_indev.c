@@ -1,4 +1,5 @@
 #include "lv_port_indev.h"
+#include "lv_group.h"
 #include <fcntl.h>
 #include <linux/input.h>
 #include <stdio.h>
@@ -12,11 +13,12 @@ static lv_indev_t *indev_keypad;
 static int evdev_fd = -1;
 
 // --- 状态机结构体 ---
-typedef struct {
-  int physical_key_code; // 物理键值
-  uint32_t press_start;  // 按下时的时间戳
-  bool is_pressed;       // 当前物理状态
-  bool long_press_sent;  // 标记长按事件是否已经发送过
+typedef struct
+{
+    int physical_key_code; // 物理键值
+    uint32_t press_start;  // 按下时的时间戳
+    bool is_pressed;       // 当前物理状态
+    bool long_press_sent;  // 标记长按事件是否已经发送过
 } key_state_t;
 
 static key_state_t key_state_1 = {0}; // 对应 KEY 1
@@ -26,43 +28,57 @@ static key_state_t key_state_2 = {0}; // 对应 KEY 2
 static uint32_t last_lv_key = 0;
 // static lv_indev_state_t last_lv_state = LV_INDEV_STATE_RELEASED;
 
-// 获取毫秒级时间戳
-static uint32_t current_timestamp(void) { return lv_tick_get(); }
+/**
+ * @brief 获取当前时间戳 (毫秒级)
+ * @return 当前时间戳 (毫秒级)
+ */
+static uint32_t current_timestamp(void)
+{
+    return lv_tick_get();
+}
 
 /**
  * @brief 底层读取 Linux Input Event，非阻塞
  */
-static void evdev_read_phys(void) {
-  struct input_event ev;
-  int len;
+static void evdev_read_phys(void)
+{
+    struct input_event ev;
+    int len;
 
-  // 循环读取所有积压的事件
-  while (1) {
-    len = read(evdev_fd, &ev, sizeof(struct input_event));
-    if (len != sizeof(struct input_event)) {
-      break; // 没有更多数据或出错
-    }
-
-    if (ev.type == EV_KEY) {
-      key_state_t *target = NULL;
-
-      // 映射物理按键到状态对象
-      if (ev.code == MY_KEY_1_CODE)
-        target = &key_state_1;
-      else if (ev.code == MY_KEY_2_CODE)
-        target = &key_state_2;
-
-      if (target) {
-        if (ev.value == 1) { // 按下
-          target->is_pressed = true;
-          target->press_start = current_timestamp();
-          target->long_press_sent = false; // 重置长按标记
-        } else if (ev.value == 0) {        // 抬起
-          target->is_pressed = false;
+    // 循环读取所有积压的事件
+    while (1)
+    {
+        len = read(evdev_fd, &ev, sizeof(struct input_event));
+        if (len != sizeof(struct input_event))
+        {
+            break; // 没有更多数据或出错
         }
-      }
+
+        if (ev.type == EV_KEY)
+        {
+            key_state_t *target = NULL;
+
+            // 映射物理按键到状态对象
+            if (ev.code == MY_KEY_1_CODE)
+                target = &key_state_1;
+            else if (ev.code == MY_KEY_2_CODE)
+                target = &key_state_2;
+
+            if (target)
+            {
+                if (ev.value == 1)
+                { // 按下
+                    target->is_pressed      = true;
+                    target->press_start     = current_timestamp();
+                    target->long_press_sent = false; // 重置长按标记
+                }
+                else if (ev.value == 0)
+                { // 抬起
+                    target->is_pressed = false;
+                }
+            }
+        }
     }
-  }
 }
 
 /**
@@ -169,58 +185,80 @@ static void evdev_read_phys(void) {
 // 1. 按下 Key1 -> 立即发送 LV_KEY_NEXT PRESSED
 // 2. 按住超过 800ms -> 发送 LV_KEY_NEXT RELEASED, 紧接着发送 LV_KEY_PREV
 // PRESSED
-static void keypad_read_cb_v2(lv_indev_drv_t *drv, lv_indev_data_t *data) {
-  evdev_read_phys();
-  uint32_t now = current_timestamp();
+static void keypad_read_cb_v2(lv_indev_drv_t *drv, lv_indev_data_t *data)
+{
+    evdev_read_phys();
+    uint32_t now = current_timestamp();
 
-  data->state = LV_INDEV_STATE_RELEASED;
-  data->key = last_lv_key;
+    data->state = LV_INDEV_STATE_RELEASED;
+    data->key   = last_lv_key;
 
-  // 处理 Key 1 (Next / Prev)
-  if (key_state_1.is_pressed) {
-    uint32_t duration = now - key_state_1.press_start;
-    if (duration < LONG_PRESS_MS) {
-      data->key   = LV_KEY_RIGHT;
-      data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-      // 超时变身
-      data->key   = LV_KEY_LEFT;
-      data->state = LV_INDEV_STATE_PRESSED;
+    // 处理 Key 1 (Right / Left)
+    if (key_state_1.is_pressed)
+    {
+        uint32_t duration = now - key_state_1.press_start;
+        if (duration < LONG_PRESS_MS)
+        {
+            data->key   = LV_KEY_RIGHT;
+            data->state = LV_INDEV_STATE_PRESSED;
+        }
+        else
+        {
+            // 超时变身
+            data->key   = LV_KEY_LEFT;
+            data->state = LV_INDEV_STATE_PRESSED;
+        }
     }
-  }
-  // 处理 Key 2 (Enter / Esc)
-  else if (key_state_2.is_pressed) {
-    uint32_t duration = now - key_state_2.press_start;
-    if (duration < LONG_PRESS_MS) {
-      data->key = LV_KEY_ENTER;
-      data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-      // 超时变身
-      data->key = LV_KEY_ESC;
-      data->state = LV_INDEV_STATE_PRESSED;
+    // 处理 Key 2 (Enter / Esc)
+    else if (key_state_2.is_pressed)
+    {
+        uint32_t duration = now - key_state_2.press_start;
+        if (duration < LONG_PRESS_MS)
+        {
+            data->key   = LV_KEY_ENTER;
+            data->state = LV_INDEV_STATE_PRESSED;
+        }
+        else
+        {
+            // 超时变身
+            data->key   = LV_KEY_ESC;
+            data->state = LV_INDEV_STATE_PRESSED;
+        }
     }
-  }
 
-  last_lv_key = data->key;
+    last_lv_key = data->key;
 }
 
-void lv_port_indev_init(void) {
-  // 1. 打开 Linux 输入设备
-  evdev_fd = open(INPUT_DEV_PATH, O_RDONLY | O_NONBLOCK);
-  if (evdev_fd == -1) {
-    perror("unable to open input device");
-    return;
-  }
-  printf("Input device opened: %s\n", INPUT_DEV_PATH);
+/**
+ * @brief 初始化 LVGL 输入设备驱动
+ * 打开 Linux 输入设备文件，注册 LVGL 输入驱动
+ */
+void lv_port_indev_init(void)
+{
+    // 1. 打开 Linux 输入设备
+    evdev_fd = open(INPUT_DEV_PATH, O_RDONLY | O_NONBLOCK);
+    if (evdev_fd == -1)
+    {
+        perror("unable to open input device");
+        return;
+    }
+    printf("Input device opened: %s\n", INPUT_DEV_PATH);
 
-  // 2. 注册 LVGL 输入驱动
-  static lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);
+    // 2. 注册 LVGL 输入驱动
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
 
-  indev_drv.type = LV_INDEV_TYPE_KEYPAD; // 键盘模式
-  indev_drv.read_cb = keypad_read_cb_v2; // 使用 V2 策略，响应更及时
+    indev_drv.type    = LV_INDEV_TYPE_KEYPAD; // 键盘模式
+    indev_drv.read_cb = keypad_read_cb_v2;    // 使用 V2 策略，响应更及时
 
-  indev_keypad = lv_indev_drv_register(&indev_drv);
+    indev_keypad = lv_indev_drv_register(&indev_drv);
 }
 
-lv_indev_t *lv_port_indev_get_main(void) { return indev_keypad; }
+/**
+ * @brief 获取主输入设备句柄
+ * @return LVGL 输入设备句柄
+ */
+lv_indev_t *lv_port_indev_get_main(void)
+{
+    return indev_keypad;
+}
