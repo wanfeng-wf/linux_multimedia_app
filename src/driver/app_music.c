@@ -33,13 +33,18 @@ static lv_obj_t *slider_progress  = NULL;
 static lv_obj_t *label_btn_icon   = NULL;
 static lv_timer_t *progress_timer = NULL;
 
+// 退出回调
+static app_music_exit_cb_t g_exit_cb = NULL;
+
 // --- 声明 ---
 static void scan_music_files(void);
 static void app_music_event_cb(lv_event_t *e);
 static void progress_timer_cb(lv_timer_t *timer);
-static void close_app(void);
 
-// 音频后端实现
+/**
+ * @brief 初始化音频引擎后端
+ * 自动连接 ALSA/PulseAudio 等音频后端
+ */
 void app_music_init_backend(void)
 {
     if (is_engine_inited)
@@ -60,6 +65,10 @@ void app_music_init_backend(void)
     printf("Miniaudio: Engine initialized.\n");
 }
 
+/**
+ * @brief 播放指定文件
+ * @param path 文件路径 (绝对路径)
+ */
 void music_play_file(const char *path)
 {
     if (!is_engine_inited)
@@ -87,18 +96,27 @@ void music_play_file(const char *path)
     printf("Miniaudio: Playing %s\n", path);
 }
 
+/**
+ * @brief 暂停播放
+ */
 void music_pause(void)
 {
     if (is_sound_loaded)
         ma_sound_stop(&sound);
 }
 
+/**
+ * @brief 恢复播放
+ */
 void music_resume(void)
 {
     if (is_sound_loaded)
         ma_sound_start(&sound);
 }
 
+/**
+ * @brief 切换播放状态 (播放/暂停)
+ */
 void music_toggle(void)
 {
     if (!is_sound_loaded)
@@ -114,6 +132,10 @@ void music_toggle(void)
     }
 }
 
+/**
+ * @brief 获取当前播放状态
+ * @return 当前播放状态 (播放/暂停/停止)
+ */
 music_state_t music_get_state(void)
 {
     if (!is_sound_loaded)
@@ -123,6 +145,10 @@ music_state_t music_get_state(void)
     return MUSIC_STATE_PAUSED;
 }
 
+/**
+ * @brief 获取总播放时间 (秒)
+ * @return 总播放时间 (秒)
+ */
 uint32_t music_get_total_time(void)
 {
     if (!is_sound_loaded)
@@ -132,6 +158,10 @@ uint32_t music_get_total_time(void)
     return (uint32_t)len_seconds;
 }
 
+/**
+ * @brief 获取当前播放时间 (秒)
+ * @return 当前播放时间 (秒)
+ */
 uint32_t music_get_current_time(void)
 {
     if (!is_sound_loaded)
@@ -141,6 +171,10 @@ uint32_t music_get_current_time(void)
     return (uint32_t)cursor_seconds;
 }
 
+/**
+ * @brief 获取当前播放进度 (千分比)
+ * @return 当前播放进度 (千分比)
+ */
 int music_get_progress_permille(void)
 {
     uint32_t total = music_get_total_time();
@@ -150,22 +184,9 @@ int music_get_progress_permille(void)
     return (int)((current * 1000) / total);
 }
 
-void app_music_deinit(void)
-{
-    if (is_sound_loaded)
-    {
-        ma_sound_uninit(&sound);
-        is_sound_loaded = false;
-    }
-    if (is_engine_inited)
-    {
-        ma_engine_uninit(&engine);
-        is_engine_inited = false;
-    }
-}
-
-// UI 逻辑实现
-
+/**
+ * @brief 扫描音乐目录，填充文件列表
+ */
 static void scan_music_files(void)
 {
     DIR *d;
@@ -195,7 +216,9 @@ static void scan_music_files(void)
     printf("Music App: Found %d songs.\n", file_count);
 }
 
-// 播放当前索引的歌曲
+/**
+ * @brief 播放当前索引的歌曲
+ */
 static void play_current_index(void)
 {
     if (file_count == 0)
@@ -219,7 +242,9 @@ static void play_current_index(void)
     lv_label_set_text(label_btn_icon, LV_SYMBOL_PAUSE);
 }
 
-// 定时器回调：更新进度条和时间
+/**
+ * @brief 定时器回调：更新进度条和时间显示
+ */
 static void progress_timer_cb(lv_timer_t *timer)
 {
     if (music_get_state() == MUSIC_STATE_PLAYING)
@@ -244,6 +269,10 @@ static void progress_timer_cb(lv_timer_t *timer)
     }
 }
 
+/**
+ * @brief 应用音乐事件回调
+ * 处理按键事件：下一曲、上一曲、播放/暂停、退出
+ */
 static void app_music_event_cb(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -272,36 +301,22 @@ static void app_music_event_cb(lv_event_t *e)
                     lv_label_set_text(label_btn_icon, LV_SYMBOL_PLAY);
                 break;
 
-            case LV_KEY_ESC: // Key 2 Long: 退出
-                close_app();
+            case LV_KEY_ESC:   // Key 2 Long: 退出
+                if (g_exit_cb) // 主程序关闭
+                    g_exit_cb();
                 break;
         }
     }
 }
 
-static void close_app(void)
+/**
+ * @brief 初始化应用音乐
+ * 创建 UI、初始化后端、扫描音乐文件
+ */
+void app_music_init(app_music_exit_cb_t exit_cb)
 {
-    // 停止定时器
-    if (progress_timer)
-    {
-        lv_timer_del(progress_timer);
-        progress_timer = NULL;
-    }
-    // 停止音乐并清理后端
-    app_music_deinit();
+    g_exit_cb = exit_cb;
 
-    // 销毁 UI
-    if (main_cont)
-    {
-        lv_obj_del(main_cont);
-        main_cont = NULL;
-    }
-    printf("Music App Closed.\n");
-}
-
-// 主入口
-void app_music_init(void)
-{
     // 1. 初始化后端
     app_music_init_backend();
     scan_music_files();
@@ -362,4 +377,36 @@ void app_music_init(void)
         current_file_idx = 0;
         play_current_index();
     }
+}
+
+/**
+ * @brief 关闭应用音乐，释放资源
+ */
+void app_music_close(void)
+{
+    // 停止定时器
+    if (progress_timer)
+    {
+        lv_timer_del(progress_timer);
+        progress_timer = NULL;
+    }
+    // 停止音乐并清理后端
+    if (is_sound_loaded)
+    {
+        ma_sound_uninit(&sound);
+        is_sound_loaded = false;
+    }
+    if (is_engine_inited)
+    {
+        ma_engine_uninit(&engine);
+        is_engine_inited = false;
+    }
+
+    // 销毁 UI
+    if (main_cont)
+    {
+        lv_obj_del(main_cont);
+        main_cont = NULL;
+    }
+    printf("Music App Closed.\n");
 }

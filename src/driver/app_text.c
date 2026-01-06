@@ -43,16 +43,18 @@ static long page_history[MAX_HISTORY];
 static int page_history_idx  = 0; // 当前页码索引 (0 = 第1页)
 static long next_page_offset = 0; // 下一页的文件偏移量
 
+// 静态变量保存回调
+static app_text_exit_cb_t g_exit_cb = NULL;
+
 // --- 函数声明 ---
 static void render_page(void);
 static void process_layout(long start_offset, char *out_buf, long *new_offset);
-static void close_app(void);
 static void app_text_event_cb(lv_event_t *e);
 
 /**
  * @brief 核心排版引擎 (Strategy 3 & 4)
  * 读取文件，清洗数据，计算换行，生成一页的显示字符串
- * * @param start_offset 从文件的哪个位置开始读
+ * @param start_offset 从文件的哪个位置开始读
  * @param out_buf      输出缓冲区
  * @param new_offset   [out] 排版结束后，文件指针到了哪里 (用于下一页)
  */
@@ -67,7 +69,7 @@ static void process_layout(long start_offset, char *out_buf, long *new_offset)
     int current_width    = 0;
     int buf_idx          = 0;
     int empty_line_count = 0;
-    int has_content      = 0; // 【新增】标记当前页是否有实质内容
+    int has_content      = 0; // 标记当前页是否有实质内容
 
     // 读取用的临时变量
     int ch;
@@ -101,11 +103,10 @@ static void process_layout(long start_offset, char *out_buf, long *new_offset)
                 empty_line_count = 0;
             }
 
-            // ---【核心修改开始】---
             // 检测到连续空行 > 2 (即章节分隔)
             if (empty_line_count > 2)
             {
-                // 1. 吞噬后续所有空白字符，直到找到下一章的第一个字
+                // 吞噬后续所有空白字符，直到找到下一章的第一个字
                 int next_c;
                 while (1)
                 {
@@ -122,10 +123,10 @@ static void process_layout(long start_offset, char *out_buf, long *new_offset)
                     }
                 }
 
-                // 2. 决定是结束当前页，还是重置当前页
+                // 决定是结束当前页，还是重置当前页
                 if (has_content == 0)
                 {
-                    // 【关键修复】如果当前页还没写过字（说明空行在页首），
+                    // 如果当前页还没写过字（说明空行在页首），
                     // 则丢弃刚才读到的换行符，重置状态，继续在“这一页”显示新章节
                     buf_idx          = 0;
                     current_line     = 0;
@@ -141,7 +142,6 @@ static void process_layout(long start_offset, char *out_buf, long *new_offset)
                     break;
                 }
             }
-            // ---【核心修改结束】---
 
             // 正常换行处理
             if (current_line < g_max_lines)
@@ -223,7 +223,7 @@ static void process_layout(long start_offset, char *out_buf, long *new_offset)
 }
 
 /**
- * @brief 渲染当前页 (Strategy 6)
+ * @brief 渲染当前页
  */
 static void render_page(void)
 {
@@ -251,10 +251,52 @@ static void render_page(void)
 }
 
 /**
- * @brief 初始化应用
+ * @brief 按键事件处理
+ * 响应左右键切换页面，长按物理 Key 2 退出应用
  */
-void app_text_init(void)
+static void app_text_event_cb(lv_event_t *e)
 {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_KEY)
+    {
+        uint32_t key = lv_indev_get_key(lv_indev_get_act());
+        switch (key)
+        {
+            case LV_KEY_RIGHT: // 下一页
+                if (next_page_offset < file_total_size && page_history_idx < MAX_HISTORY - 1)
+                {
+                    // 记录下一页的起始位置
+                    page_history_idx++;
+                    page_history[page_history_idx] = next_page_offset;
+                    render_page();
+                }
+                break;
+            case LV_KEY_LEFT: // 上一页
+                if (page_history_idx > 0)
+                {
+                    page_history_idx--;
+                    // 上一页的 offset 已经在历史栈里了，直接取
+                    render_page();
+                }
+                break;
+            case LV_KEY_ESC:
+                if (g_exit_cb) // 不直接 close，而是通知主程序
+                {
+                    g_exit_cb();
+                }
+                break;
+        }
+    }
+}
+
+/**
+ * @brief 初始化应用文本阅读器
+ * 创建 UI 容器、加载字体、打开文本文件
+ */
+void app_text_init(app_text_exit_cb_t exit_cb)
+{
+    g_exit_cb = exit_cb; // 保存回调
+
     // --- 1. 资源加载 ---
     if (my_font == NULL)
     {
@@ -337,39 +379,11 @@ void app_text_init(void)
     render_page();
 }
 
-static void app_text_event_cb(lv_event_t *e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_KEY)
-    {
-        uint32_t key = lv_indev_get_key(lv_indev_get_act());
-        switch (key)
-        {
-            case LV_KEY_RIGHT: // 下一页
-                if (next_page_offset < file_total_size && page_history_idx < MAX_HISTORY - 1)
-                {
-                    // 记录下一页的起始位置
-                    page_history_idx++;
-                    page_history[page_history_idx] = next_page_offset;
-                    render_page();
-                }
-                break;
-            case LV_KEY_LEFT: // 上一页
-                if (page_history_idx > 0)
-                {
-                    page_history_idx--;
-                    // 上一页的 offset 已经在历史栈里了，直接取
-                    render_page();
-                }
-                break;
-            case LV_KEY_ESC:
-                close_app();
-                break;
-        }
-    }
-}
-
-static void close_app(void)
+/**
+ * @brief 退出应用
+ * 释放所有资源，删除 UI 容器
+ */
+void app_text_close(void)
 {
     if (book_file)
     {

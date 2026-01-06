@@ -6,8 +6,14 @@ extern "C"
 {
 #endif
 
-// 初始化并打开图片浏览应用
-void app_image_init(void);
+// 定义退出回调函数类型
+typedef void (*app_image_exit_cb_t)(void);
+
+// 初始化：传入退出时的回调函数
+void app_image_init(app_image_exit_cb_t exit_cb);
+
+// 关闭应用：销毁资源
+void app_image_close(void);
 
 #ifdef __cplusplus
 }

@@ -6,11 +6,13 @@ extern "C"
 {
 #endif
 
-// 初始化并打开小说阅读器
-void app_text_init(void);
+typedef void (*app_text_exit_cb_t)(void);
+
+void app_text_init(app_text_exit_cb_t exit_cb);
+void app_text_close(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // APP_TEXT_H
+#endif

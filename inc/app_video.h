@@ -6,11 +6,12 @@ extern "C"
 {
 #endif
 
-// 初始化并进入视频播放器应用
-void app_video_init(void);
+typedef void (*app_video_exit_cb_t)(void);
+
+void app_video_init(app_video_exit_cb_t exit_cb);
+void app_video_close(void);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // APP_VIDEO_H
+#endif

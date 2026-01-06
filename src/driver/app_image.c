@@ -22,6 +22,9 @@ static lv_obj_t *main_cont  = NULL; // 主容器
 static lv_obj_t *img_obj    = NULL; // 图片对象
 static lv_obj_t *label_info = NULL; // 文件名显示
 
+// 静态变量保存回调
+static app_image_exit_cb_t g_exit_cb = NULL;
+
 // --- 函数声明 ---
 static void scan_image_dir(void);
 static void load_current_image(void);
@@ -29,6 +32,7 @@ static void app_img_event_cb(lv_event_t *e);
 
 /**
  * @brief 扫描目录下的图片文件 (.png)
+ * 支持递归子目录，最多 MAX_FILES 个文件
  */
 static void scan_image_dir(void)
 {
@@ -61,7 +65,8 @@ static void scan_image_dir(void)
 }
 
 /**
- * @brief 加载当前索引的图片
+ * @brief 加载当前索引的图片文件
+ * 确保索引在有效范围内，更新 UI 显示
  */
 static void load_current_image(void)
 {
@@ -93,22 +98,9 @@ static void load_current_image(void)
 }
 
 /**
- * @brief 退出应用回调
- */
-static void close_app(void)
-{
-    if (main_cont)
-    {
-        lv_obj_del(main_cont);
-        main_cont = NULL;
-        img_obj   = NULL;
-        // 这里可以添加逻辑返回主菜单
-        printf("App Image Closed.\n");
-    }
-}
-
-/**
  * @brief 按键事件处理
+ * 响应左右键切换图片，长按物理 Key 2 退出应用
+ * 物理 Key 1 短按切换下一张，长按切换上一张
  */
 static void app_img_event_cb(lv_event_t *e)
 {
@@ -118,7 +110,7 @@ static void app_img_event_cb(lv_event_t *e)
     {
         uint32_t key = lv_indev_get_key(lv_indev_get_act());
 
-        printf("Key pressed: %d\n", key);
+        // printf("Key pressed: %d\n", key);
         // --- 核心交互逻辑 ---
         switch (key)
         {
@@ -127,7 +119,7 @@ static void app_img_event_cb(lv_event_t *e)
                 current_index++;
                 load_current_image();
                 break;
-            case LV_KEY_LEFT: // 对应 Key 1 短按
+            case LV_KEY_LEFT: // 对应 Key 1 长按
             case LV_KEY_PREV: // 保留兼容
                 current_index--;
                 load_current_image();
@@ -136,7 +128,10 @@ static void app_img_event_cb(lv_event_t *e)
                 // 可选：切换全屏或旋转图片
                 break;
             case LV_KEY_ESC: // 物理 Key 2 长按
-                close_app();
+                if (g_exit_cb) // 不直接 close，而是通知主程序
+                {
+                    g_exit_cb();
+                }
                 break;
         }
     }
@@ -144,9 +139,12 @@ static void app_img_event_cb(lv_event_t *e)
 
 /**
  * @brief 初始化图片应用
+ * 创建 UI 容器、扫描图片文件、初始化图片控件
  */
-void app_image_init(void)
+void app_image_init(app_image_exit_cb_t exit_cb)
 {
+    g_exit_cb = exit_cb; // 保存回调
+
     // 1. 扫描文件
     scan_image_dir();
 
@@ -180,4 +178,20 @@ void app_image_init(void)
     // 6. 加载第一张图片
     current_index = 0;
     load_current_image();
+}
+
+/**
+ * @brief 退出应用
+ * 释放所有资源，删除 UI 容器
+ */
+void app_image_close(void)
+{
+    if (main_cont)
+    {
+        lv_obj_del(main_cont);
+        main_cont = NULL;
+        img_obj   = NULL;
+        // 这里可以添加逻辑返回主菜单
+        printf("App Image Closed.\n");
+    }
 }

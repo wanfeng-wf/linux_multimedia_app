@@ -19,8 +19,11 @@ typedef enum
 
 // --- 控制接口 ---
 
-// 初始化音乐播放器 (启动后台线程)
-void app_music_init(void);
+typedef void (*app_music_exit_cb_t)(void);
+
+// 初始化音乐播放器
+void app_music_init(app_music_exit_cb_t exit_cb);
+
 
 // 播放指定文件
 // path: 文件的绝对路径 (例如 "/root/multimedia_app/song.mp3")
@@ -53,7 +56,7 @@ uint32_t music_get_current_time(void);
 int music_get_progress_permille(void);
 
 // 清理资源
-void app_music_deinit(void);
+void app_music_close(void);
 
 #ifdef __cplusplus
 }

@@ -50,15 +50,20 @@ static lv_img_dsc_t img_dsc;
 static bool is_playing = false;
 static bool is_paused  = false;
 
+// 退出回调
+static app_video_exit_cb_t g_exit_cb = NULL;
+
 // --- 函数声明 ---
 static void scan_video_files(void);
 static int open_video_file(const char *filepath);
 static void close_video_file(void);
 static void video_timer_cb(lv_timer_t *timer);
 static void app_video_event_cb(lv_event_t *e);
-static void close_app(void);
 
-
+/**
+ * @brief 扫描视频目录，填充文件列表
+ * 遍历指定目录，将所有 MP4 文件添加到 file_list 中
+ */
 static void scan_video_files(void)
 {
     DIR *d;
@@ -87,6 +92,10 @@ static void scan_video_files(void)
     printf("Video App: Found %d videos.\n", file_count);
 }
 
+/**
+ * @brief 关闭视频文件
+ * 释放 FFmpeg 资源，停止播放定时器，重置状态
+ */
 static void close_video_file(void)
 {
     // 停止定时器
@@ -131,6 +140,10 @@ static void close_video_file(void)
     is_playing = false;
 }
 
+/**
+ * @brief 打开视频文件
+ * 初始化 FFmpeg，打开视频文件，查找视频流
+ */
 static int open_video_file(const char *filepath)
 {
     close_video_file(); // 先清理旧的
@@ -228,6 +241,10 @@ static int open_video_file(const char *filepath)
     return 0;
 }
 
+/**
+ * @brief 视频播放定时器回调
+ * 读取视频帧，解码显示，支持暂停和循环播放
+ */
 static void video_timer_cb(lv_timer_t *timer)
 {
     if (!is_playing || is_paused)
@@ -283,6 +300,10 @@ static void video_timer_cb(lv_timer_t *timer)
     av_seek_frame(pFormatCtx, videoStream, 0, AVSEEK_FLAG_BACKWARD);
 }
 
+/**
+ * @brief 播放当前索引的视频文件
+ * 关闭当前视频，打开新文件，更新 UI 标题
+ */
 static void play_current_index(void)
 {
     if (file_count == 0)
@@ -301,6 +322,10 @@ static void play_current_index(void)
     open_video_file(full_path);
 }
 
+/**
+ * @brief 视频应用按键事件处理
+ * 处理播放、暂停、切换视频等操作
+ */
 static void app_video_event_cb(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -322,26 +347,21 @@ static void app_video_event_cb(lv_event_t *e)
                 lv_label_set_text(label_info, is_paused ? "PAUSED" : file_list[current_file_idx]);
                 break;
             case LV_KEY_ESC: // Quit
-                close_app();
+                if (g_exit_cb) // 主程序关闭
+                    g_exit_cb();
                 break;
         }
     }
 }
 
-static void close_app(void)
+/**
+ * @brief 初始化视频应用
+ * 创建 UI 容器、扫描视频文件、初始化 FFmpeg
+ */
+void app_video_init(app_video_exit_cb_t exit_cb)
 {
-    close_video_file();
-
-    if (main_cont)
-    {
-        lv_obj_del(main_cont);
-        main_cont = NULL;
-    }
-    printf("Video App Closed.\n");
-}
-
-void app_video_init(void)
-{
+    g_exit_cb = exit_cb;
+    
     // 1. 扫描文件
     scan_video_files();
 
@@ -365,7 +385,7 @@ void app_video_init(void)
 
     // 信息标签
     label_info = lv_label_create(main_cont);
-    lv_obj_align(label_info, LV_ALIGN_TOP_MID, 0, 5);
+    lv_obj_align(label_info, LV_ALIGN_TOP_MID, 0, -5);
     lv_obj_set_style_text_color(label_info, lv_color_white(), 0);
     lv_label_set_text(label_info, "Loading Video...");
 
@@ -379,4 +399,20 @@ void app_video_init(void)
     {
         lv_label_set_text(label_info, "No MP4 Files Found!");
     }
+}
+
+/**
+ * @brief 关闭视频应用
+ * 释放所有资源，关闭视频文件，删除 UI 容器
+ */
+void app_video_close(void)
+{
+    close_video_file();
+
+    if (main_cont)
+    {
+        lv_obj_del(main_cont);
+        main_cont = NULL;
+    }
+    printf("Video App Closed.\n");
 }
